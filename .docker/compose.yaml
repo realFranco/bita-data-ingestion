@@ -1,0 +1,37 @@
+services:
+  cli:
+    build:
+      context: ./../.
+      dockerfile: ./.docker/cli/Dockerfile
+    volumes:
+      - ./../src:/app
+    networks:
+      - data-ingestion
+    working_dir: /app
+    env_file:
+      - .env
+
+  db:
+    image: postgres:16.1-alpine3.19
+    container_name: ${POSTGRES_HOST}
+    user: postgres
+    env_file:
+      - ./.env
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+      - ./db-postgres:/docker-entrypoint-initdb.d/
+    networks:
+      - data-ingestion
+    ports:
+      - 5432:5432
+    # s
+
+networks:
+  data-ingestion:
+    driver: bridge
