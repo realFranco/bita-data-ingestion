@@ -10,9 +10,9 @@ class FileHandler:
     def __init__(self):
         pass
 
-    def read(self, fileLocation: str) -> List[Dict]:
+    def read(self, file_location: str) -> List[Dict]:
         print('>> Reading the input file.')
-        with open(fileLocation, 'r', encoding="utf-8-sig") as f:
+        with open(file_location, 'r', encoding="utf-8-sig") as f:
             reader = csv.reader(f, delimiter=';')
 
             out: List[Dict] = []
@@ -33,15 +33,15 @@ class FileHandler:
 
         return out
     
-    def read_by_chunks(self, fileLocation: str, chunkSize: int, skipRows: int) -> List[Dict]:
+    def read_by_chunks(self, file_location: str, chunk_size: int, skip_rows: int) -> List[Dict]:
         try:
             with pandas.read_csv(
-                filepath_or_buffer=fileLocation,
+                filepath_or_buffer=file_location,
                 delimiter=';',
-                chunksize=chunkSize,
+                chunksize=chunk_size,
                 encoding='utf-8-sig',
                 low_memory=False,
-                skiprows=skipRows
+                skiprows=skip_rows
             ) as reader:
                 df = reader.get_chunk()
                 data = [series[1].to_dict() for series in df.iterrows()]
