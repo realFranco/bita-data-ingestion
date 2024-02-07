@@ -1,6 +1,5 @@
-import uuid
 import traceback
-from typing import List
+from typing import Dict, List
 
 from store.SqlStore import SqlStore
 
@@ -9,59 +8,42 @@ class StockRepository:
     """
     Class that will interact with the data storage service.
     """
-    def __init__(self, store_service: SqlStore, chunks: int = 100):
-        self.__chunks = 100 if chunks < 100 else chunks
+    def __init__(self, store_service: SqlStore):
         self.__store_service = store_service
 
-    def setChunks(self, chunks: int):
-        self.__chunks = chunks
-
-    def saveManyRows(self, data: List) -> None:
+    def save_many_rows(self, data: List[Dict]) -> None:
         try:
-            print(f'>> Attempt to save {len(data)} rows with a chunk size of {self.__chunks}.')
+            print(f'>> Attempt to save {len(data)} rows.')
             
-            values: List[str] = []
-
-            stockInsertStatement: str = "INSERT INTO stock (id, point_of_sale, product, date, stock) VALUES {values}"
+            values: str = ''
 
             for row in range(0, len(data)):
-                rowToInsert = data[row]
-                values.append(
-                    "(\'{}\', \'{}\', \'{}\', \'{}\', {})".format(
-                        uuid.uuid4(),
-                        rowToInsert['PointOfSale'],
-                        rowToInsert['Product'],
-                        rowToInsert['Date'],
-                        rowToInsert['Stock']
+                rowValues = list(data[row].values())
+                values += "(\'{}\', \'{}\', \'{}\', {}), ".format(
+                        rowValues[0],
+                        rowValues[1],
+                        rowValues[2],
+                        rowValues[3]
                     )
-                )
                 
-                if row > 0 and row % self.__chunks == 0:
-                    valuesSeparatedByComma: str = ', '.join(values)
-                    self.__store_service.execute(
-                        sql=stockInsertStatement.format(values=valuesSeparatedByComma)
-                    )
+            values = values[:-2]  # Ignore the last comma character `, `.
 
-                    values = []
-
-            if len(values) > 0:
-                print(f'>> A final chunk of {len(values)} rows will be stored.')
-                valuesSeparatedByComma: str = ', '.join(values)
-                self.__store_service.execute(
-                    sql=stockInsertStatement.format(values=valuesSeparatedByComma)
-                )
+            self.__store_service.execute(
+                sql='INSERT INTO stock (point_of_sale, product, date, stock) VALUES ' + values
+            )
 
         except Exception as err:
-            traceback.print_exception(err)
+            traceback.print_exception(value=None, tb=err, etype=BaseException)
 
 
     def clear(self) -> None:
         try:
-            print('>> Attempt to drop the `stock` table.')
+            print('>> Attempt to clean the `stock` table.')
 
             stockDropStatement: str = 'DELETE FROM stock WHERE TRUE;'
             self.__store_service.execute(
                 sql=stockDropStatement
             )
+
         except Exception as err:
-            traceback.print_exception(err)
+            traceback.print_exception(value=None, tb=err, etype=BaseException)
