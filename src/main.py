@@ -2,8 +2,9 @@ import argparse
 import time
 from typing import Dict, Union
 
+import pandas
+
 from database.Config import Config
-from ingest.FileHandler import FileHandler
 from repository.StockRepository import StockRepository
 from store.SqlStore import SqlStore
 
@@ -11,9 +12,9 @@ from store.SqlStore import SqlStore
 def clean_db() -> None:
     print('>> Clean `stock` table.')
     config = Config()
-    dbConnection = config.get_arrow_connection()
+    db_connection = config.get_arrow_connection()
 
-    store_service = SqlStore(connection=dbConnection)
+    store_service = SqlStore(connection=db_connection)
     
     stock_repository = StockRepository(
         store_service=store_service,
@@ -27,37 +28,33 @@ def insert_rows(file: str, chunks: int) -> None:
     print('>> Insert rows.')
 
     config = Config()
-    dbConnection = config.get_arrow_connection()
+    db_connection = config.get_arrow_connection()
 
-    store_service = SqlStore(connection=dbConnection)
+    store_service = SqlStore(connection=db_connection)
 
     stock_repository = StockRepository(store_service=store_service)
 
-    file_handler = FileHandler()
-
     iteration: int = 0
 
-    while True:
-        # Manipulate data by chunks.
-        data = file_handler.read_by_chunks(
-            file_location=file,
-            chunk_size=chunks,
-            skip_rows=chunks * iteration
-        )
+    with pandas.read_csv(
+        filepath_or_buffer=file,
+        delimiter=';',
+        chunksize=chunks,
+        encoding='utf-8-sig',
+        low_memory=False
+    ) as reader:
+        for df in reader:
+            data = [series[1].to_dict() for series in df.iterrows()]
 
-        if len(data) == 0:
-            # No more data to used, the `while` loop to read must be finish.
-            break
-        
-        before_save: float = time.time()
+            before_save: float = time.time()
 
-        stock_repository.save_many_rows(data)
+            stock_repository.save_many_rows(data)
 
-        after_save: float = time.time()
+            after_save: float = time.time()
 
-        print(f'\t>> Iteration {iteration} ends in {after_save - before_save:.4f} seconds.')
-        
-        iteration += 1
+            print(f'\t>> Iteration {iteration} ends in {after_save - before_save:.4f} seconds.')
+
+            iteration += 1
 
     print(f'>> The insertion has been done using {iteration} iterations.')
 
