@@ -1,21 +1,18 @@
-from psycopg2.extensions import connection as psqlConnection
-from psycopg2 import ProgrammingError
+import traceback
 
 
 class SqlStore:
-    def __init__(self, connection: psqlConnection):
+    def __init__(self, connection):
         self.connection = connection
 
     def execute(self, sql: str) -> None:
-        result = None
-
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute(sql)
-                result = cursor.fetchone()
 
-            return result
+                self.connection.commit()
+            
+            return None
 
-        except ProgrammingError:
-            # No action while the cursor do not transfer any data.
-            pass
+        except Exception as err:
+            traceback.print_exception(value=None, tb=err, etype=BaseException)

@@ -1,16 +1,17 @@
 import argparse
+import time
 from typing import Dict, Union
 
-from ingest.FileHandler import FileHandler
 from database.Config import Config
-from store.SqlStore import SqlStore
+from ingest.FileHandler import FileHandler
 from repository.StockRepository import StockRepository
+from store.SqlStore import SqlStore
 
 
-def cleanDb() -> None:
+def clean_db() -> None:
     print('>> Clean `stock` table.')
     config = Config()
-    dbConnection = config.getConnection()
+    dbConnection = config.get_arrow_connection()
 
     store_service = SqlStore(connection=dbConnection)
     
@@ -19,30 +20,47 @@ def cleanDb() -> None:
     )
     stockRepository.clear()
 
-    config.closeConnection()
+    config.close_connection()
 
 
-def insertRows(file: str, chunks: int, rowLimit: int) -> None:
+def insert_rows(file: str, chunks: int) -> None:
     print('>> Insert rows.')
-    fileHandler = FileHandler()
-    data = fileHandler.read(fileLocation=file)
-
-    if rowLimit > 0:
-        print(f'>> The rows to handle where limited to {rowLimit} rows.')
-        data = data[:rowLimit]
 
     config = Config()
-    dbConnection = config.getConnection()
+    dbConnection = config.get_arrow_connection()
 
     store_service = SqlStore(connection=dbConnection)
 
-    stockRepository = StockRepository(
-        store_service=store_service,
-        chunks=chunks
-    )
-    stockRepository.saveManyRows(data)
+    stockRepository = StockRepository(store_service=store_service)
 
-    config.closeConnection()
+    fileHandler = FileHandler()
+    iteration = 0
+
+    while True:
+        # Manipulate data by chunks.
+        data = fileHandler.read_by_chunks(
+            fileLocation=file,
+            chunkSize=chunks,
+            skipRows=chunks * iteration
+        )
+
+        if len(data) == 0:
+            # No more data to used, the `while` loop to read must be finish.
+            break
+        
+        beforeSave = time.time()
+
+        stockRepository.save_many_rows(data)
+
+        afterSave = time.time()
+
+        print(f'\t>> Iteration {iteration} ends in {afterSave - beforeSave:.4f} seconds.')
+        
+        iteration += 1
+
+    print(f'>> The insertion has been done using {iteration} iterations.')
+
+    config.close_connection()
 
 
 if __name__ == '__main__':
@@ -50,10 +68,9 @@ if __name__ == '__main__':
         description='Command line service to read data and transport it into a repository.'
     )
 
-    
     parser.add_argument('--chunks', dest='chunks', 
                             type=int,
-                            default=25000,
+                            default=250000,
                             help='Chunks of data to process use during the ingestion at each step.'
                         )
     parser.add_argument('--clean', dest='clean', 
@@ -71,22 +88,15 @@ if __name__ == '__main__':
                             default=True,
                             help='Run the insert data function only.'
                         )
-    parser.add_argument('--row-limit', dest='row_limit', 
-                            type=int,
-                            default=0,
-                            help='Limit of rows to use during the transfer, `0` means no limit. ' \
-                                + 'It is not recommended to use due a non-optimization step during reading.'
-                        )
     args: Dict[str, Union[str, bool]] = parser.parse_args().__dict__
 
     if args['clean']:
-        cleanDb()
+        clean_db()
 
     if args['insert']:
-        insertRows(
+        insert_rows(
             file=args['csv_file'],
-            chunks=args['chunks'],
-            rowLimit=args['row_limit']
+            chunks=args['chunks']
         )
 
     print('>> Data transportation where completed.\n')

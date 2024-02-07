@@ -1,23 +1,17 @@
-# i call this directory "ingest" because we can retrieve data from different data sources
-
-# file handler
 import csv
+import traceback
 from typing import Dict, List
+
+import pandas
+
 
 class FileHandler:
 
     def __init__(self):
-        self.__fileLocation: str = ''
         pass
 
-    # def setFileLocation(self, fileLocation) -> None:
-    #     self.__fileLocation = fileLocation
-            
-
     def read(self, fileLocation: str) -> List[Dict]:
-        """
-        Read the files and return a list of dictionaries.
-        """
+        print('>> Reading the input file.')
         with open(fileLocation, 'r', encoding="utf-8-sig") as f:
             reader = csv.reader(f, delimiter=';')
 
@@ -38,10 +32,28 @@ class FileHandler:
             f.close()
 
         return out
+    
+    def read_by_chunks(self, fileLocation: str, chunkSize: int, skipRows: int) -> List[Dict]:
+        try:
+            with pandas.read_csv(
+                filepath_or_buffer=fileLocation,
+                delimiter=';',
+                chunksize=chunkSize,
+                encoding='utf-8-sig',
+                low_memory=False,
+                skiprows=skipRows
+            ) as reader:
+                df = reader.get_chunk()
+                data = [series[1].to_dict() for series in df.iterrows()]
 
-    def write(self, fileLocation):
-        # No implemented.
-        pass
+                return data
 
-    # def describeHeaders():
+        except pandas.errors.EmptyDataError as err:
+            print('>> No more data will be collected.')
+            
+            return []
 
+        except Exception as err:
+            traceback.print_exception(value=None, tb=err, etype=BaseException)
+
+            return []
