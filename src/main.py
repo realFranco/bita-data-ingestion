@@ -15,10 +15,10 @@ def clean_db() -> None:
 
     store_service = SqlStore(connection=dbConnection)
     
-    stockRepository = StockRepository(
+    stock_repository = StockRepository(
         store_service=store_service,
     )
-    stockRepository.clear()
+    stock_repository.clear()
 
     config.close_connection()
 
@@ -31,30 +31,31 @@ def insert_rows(file: str, chunks: int) -> None:
 
     store_service = SqlStore(connection=dbConnection)
 
-    stockRepository = StockRepository(store_service=store_service)
+    stock_repository = StockRepository(store_service=store_service)
 
-    fileHandler = FileHandler()
-    iteration = 0
+    file_handler = FileHandler()
+
+    iteration: int = 0
 
     while True:
         # Manipulate data by chunks.
-        data = fileHandler.read_by_chunks(
-            fileLocation=file,
-            chunkSize=chunks,
-            skipRows=chunks * iteration
+        data = file_handler.read_by_chunks(
+            file_location=file,
+            chunk_size=chunks,
+            skip_rows=chunks * iteration
         )
 
         if len(data) == 0:
             # No more data to used, the `while` loop to read must be finish.
             break
         
-        beforeSave = time.time()
+        before_save: float = time.time()
 
-        stockRepository.save_many_rows(data)
+        stock_repository.save_many_rows(data)
 
-        afterSave = time.time()
+        after_save: float = time.time()
 
-        print(f'\t>> Iteration {iteration} ends in {afterSave - beforeSave:.4f} seconds.')
+        print(f'\t>> Iteration {iteration} ends in {after_save - before_save:.4f} seconds.')
         
         iteration += 1
 
